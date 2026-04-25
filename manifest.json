@@ -1,0 +1,21 @@
+{
+  "name": "Evaluador Nutricional Monagas",
+  "short_name": "NutriEval",
+  "description": "Herramienta de evaluación nutricional offline para operativos en campo.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f1f5f9",
+  "theme_color": "#1e3a8a",
+  "status_bar": "overlay",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "medical"]
+}

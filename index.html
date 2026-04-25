@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NutriEval">
+    <title>Evaluador Nutricional - Monagas</title>
+    <link rel="apple-touch-icon" href="icon-512.png">
+    <style>
+        :root {
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            background-color: #f1f5f9; 
+            display: flex; 
+            justify-content: center; 
+            padding: calc(15px + var(--safe-area-top)) 15px calc(15px + var(--safe-area-bottom)); 
+            min-height: 100vh; 
+            min-height: 100dvh;
+            box-sizing: border-box;
+        }
+        
+        .card { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            width: 100%; 
+            max-width: 480px; 
+            align-self: flex-start;
+        }
+        
+        h2 { color: #1e3a8a; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #3b82f6; padding-bottom: 10px; }
+        label { display: block; font-weight: 700; color: #475569; margin-bottom: 5px; font-size: 0.85rem; }
+        
+        select, input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 10px; 
+            box-sizing: border-box; 
+            font-size: 16px; 
+            margin-bottom: 12px; 
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        select {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23475569' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        button { 
+            width: 100%; 
+            padding: 16px; 
+            background-color: #2563eb; 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 1.1rem; 
+            font-weight: bold; 
+            cursor: pointer; 
+            margin-top: 10px; 
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        button:active { opacity: 0.8; }
+        
+        .diag-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-top: 15px; overflow: hidden; display: none; }
+        .diag-header { padding: 8px 15px; color: white; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; }
+        .diag-content { padding: 12px 15px; font-size: 0.9rem; }
+        .data-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: #64748b; }
+        .data-val { font-weight: bold; color: #1e293b; }
+
+        .bg-adecuado { background-color: #22c55e; }
+        .bg-moderado { background-color: #eab308; }
+        .bg-severo { background-color: #ef4444; }
+        .bg-info { background-color: #1e3a8a; }
+        
+        @media (display-mode: standalone) {
+            body { background-color: #f1f5f9; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Evaluación Nutricional</h2>
+    
+    <label>Grupo de Edad:</label>
+    <select id="grupoEdad">
+        <option value="recien_nacido">Recién Nacido</option>
+        <option value="6m">6 meses</option>
+        <option value="12m">12 meses (1 año)</option>
+        <option value="18m">18 meses</option>
+        <option value="24m">24 meses (2 años)</option>
+        <option value="6_9">6,0 años – 9,9 años</option>
+        <option value="10_14">10,0 años – 14,9 años</option>
+        <option value="15_65">15,0 años – 65,0 años</option>
+        <option value="mayor_65">Mayores de 65,0 años</option>
+    </select>
+
+    <div class="row">
+        <div><label>Peso (kg):</label><input type="number" id="peso" placeholder="0.0" step="0.1"></div>
+        <div><label>Talla (cm):</label><input type="number" id="talla" placeholder="0"></div>
+    </div>
+
+    <label>CBI / MUAC (mm):</label>
+    <input type="number" id="muac" placeholder="Medida del brazo">
+
+    <button onclick="evaluarTodo()">Generar Evaluación Completa</button>
+    <button onclick="limpiarFormulario()" style="background-color: #64748b; margin-top: 5px;">Limpiar</button>
+
+    <div id="boxCbi" class="diag-box">
+        <div id="cbiHeader" class="diag-header"><span>DIAGNÓSTICO CBI (BRAZO)</span><span id="cbiStatus"></span></div>
+        <div class="diag-content">
+            <div class="data-row"><span class="data-label">Resultado:</span><span id="cbiVal" class="data-val"></span></div>
+            <div class="data-row"><span class="data-label">Referencia:</span><span id="cbiRef" class="data-val"></span></div>
+        </div>
+    </div>
+
+    <div id="boxPeso" class="diag-box">
+        <div id="pesoHeader" class="diag-header"><span id="pesoTitle">INDICADOR</span><span id="pesoStatus"></span></div>
+        <div class="diag-content">
+            <div class="data-row"><span id="pesoLabel1" class="data-label">Dato:</span><span id="pesoVal" class="data-val"></span></div>
+            <div class="data-row"><span id="pesoLabel2" class="data-label">Estándar:</span><span id="pesoRef" class="data-val"></span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function evaluarTodo() {
+        const grupo = document.getElementById('grupoEdad').value;
+        const peso = parseFloat(document.getElementById('peso').value);
+        const talla = parseFloat(document.getElementById('talla').value);
+        const muac = parseFloat(document.getElementById('muac').value);
+
+        if (isNaN(muac) || muac <= 0 || muac > 500) { alert("Por favor, ingrese un valor válido del CBI (mayor a 0)."); return; }
+        if (!isNaN(peso) && (peso <= 0 || peso > 300)) { alert("Por favor, ingrese un peso válido (mayor a 0)."); return; }
+        if (!isNaN(talla) && (talla <= 0 || talla > 250)) { alert("Por favor, ingrese una talla válida (mayor a 0)."); return; }
+
+        // --- 1. EVALUACIÓN CBI (Siempre se muestra) ---
+        let cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // Default 6m-6y
+        if (grupo === "6_9") cbiRefObj = { sev: 130, ade: 145, ref: "> 145 mm" };
+        if (grupo === "10_14") cbiRefObj = { sev: 160, ade: 185, ref: "> 185 mm" };
+        if (["15_65"].includes(grupo)) cbiRefObj = { sev: 210, ade: 230, ref: "> 230 mm" };
+        if (grupo === "mayor_65") cbiRefObj = { sev: 185, ade: 210, ref: "> 210 mm" };
+
+        let cS = "ADECUADO (SITUACIÓN A)", cC = "bg-adecuado";
+        if (muac < cbiRefObj.sev) { cS = "SEVERO (SITUACIÓN B+/C)"; cC = "bg-severo"; }
+        else if (muac < cbiRefObj.ade) { cS = "LEVE/MODERADO (SITUACIÓN B)"; cC = "bg-moderado"; }
+
+        document.getElementById('cbiStatus').innerText = cS;
+        document.getElementById('cbiHeader').className = "diag-header " + cC;
+        document.getElementById('cbiVal').innerText = muac + " mm";
+        document.getElementById('cbiRef').innerText = cbiRefObj.ref;
+        document.getElementById('boxCbi').style.display = "block";
+
+        // --- 2. EVALUACIÓN ADAPTATIVA DE PESO ---
+        const boxPeso = document.getElementById('boxPeso');
+        let evaluoPeso = false;
+
+        // A. Menores de 2 años (Peso por Edad)
+        const tablaInfantil = {
+            "recien_nacido": {min: 2.8, max: 4.2}, "6m": {min: 6.1, max: 9.0},
+            "12m": {min: 8.2, max: 11.5}, "18m": {min: 9.3, max: 13.2}, "24m": {min: 10.3, max: 14.5}
+        };
+
+        if (tablaInfantil[grupo] && !isNaN(peso)) {
+            const r = tablaInfantil[grupo];
+            const s = (peso < r.min) ? "BAJO" : (peso > r.max) ? "ALTO" : "NORMAL";
+            const col = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("PESO POR EDAD", s, col, "Peso:", peso + " kg", "Rango Ideal:", r.min + "-" + r.max + " kg");
+            evaluoPeso = true;
+        }
+        // B. Escolares 6-9 años (Relación Talla/Peso)
+        else if (grupo === "6_9" && !isNaN(peso) && !isNaN(talla)) {
+            const tP = [{t:70,min:7,max:10},{t:100,min:13,max:17},{t:130,min:23,max:31},{t:145,min:32,max:44}];
+            const r = tP.reduce((p, c) => Math.abs(c.t - talla) < Math.abs(p.t - talla) ? c : p);
+            const s = (peso < r.min) ? "BAJO PESO" : (peso > r.max) ? "SOBREPESO" : "NORMAL";
+            const col = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("TALLA / PESO", s, col, "Peso:", peso + " kg", "Para " + r.t + "cm:", r.min + "-" + r.max + " kg");
+            evaluoPeso = true;
+        }
+        // C. Mayores de 10 años (IMC)
+        else if (["10_14", "15_65", "mayor_65"].includes(grupo) && !isNaN(peso) && !isNaN(talla)) {
+            const imc = parseFloat((peso / ((talla/100)**2)).toFixed(1));
+            let r = {min: 18.6, max: 24.9}; // Default Adultos
+            if (grupo === "10_14") r = {min: 14.6, max: 20.4};
+            if (grupo === "15_65") r = {min: 17.1, max: 24.9}; // Basado en tabla 15 años enviada
+
+            const s = (imc < r.min) ? "BAJO" : (imc > r.max) ? "ALTO" : "NORMAL";
+            const col = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("DIAGNÓSTICO IMC", s, col, "IMC:", imc, "Rango Normal:", r.min + " - " + r.max);
+            evaluoPeso = true;
+        }
+
+        boxPeso.style.display = evaluoPeso ? "block" : "none";
+    }
+
+    function actualizarCuadroPeso(tit, stat, col, l1, v1, l2, v2) {
+        document.getElementById('pesoTitle').innerText = tit;
+        document.getElementById('pesoStatus').innerText = stat;
+        document.getElementById('pesoHeader').className = "diag-header " + col;
+        document.getElementById('pesoLabel1').innerText = l1;
+        document.getElementById('pesoVal').innerText = v1;
+        document.getElementById('pesoLabel2').innerText = l2;
+        document.getElementById('pesoRef').innerText = v2;
+    }
+
+    function limpiarFormulario() {
+        document.getElementById('grupoEdad').value = "recien_nacido";
+        document.getElementById('peso').value = "";
+        document.getElementById('talla').value = "";
+        document.getElementById('muac').value = "";
+        document.getElementById('boxCbi').style.display = "none";
+        document.getElementById('boxPeso').style.display = "none";
+    }
+</script>
+</body>
+</html>
