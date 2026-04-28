@@ -349,9 +349,11 @@
             pesoBox.style.display = "none";
         }
         
-         // Quitar estado de carga
-         evaluateBtn.classList.remove('loading');
-         evaluateBtn.disabled = false;
+        // Quitar estado de carga con un pequeño retraso para que se vea el spinner
+        setTimeout(() => {
+          evaluateBtn.classList.remove('loading');
+          evaluateBtn.disabled = false;
+        }, 500);
 
 
     }
