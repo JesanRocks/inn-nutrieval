@@ -7,8 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="NutriEval">
+    <link rel="manifest" href="manifest.json">
     <title>Evaluador Nutricional - Monagas</title>
     <link rel="apple-touch-icon" href="icon-512.png">
+    <link rel="icon" type="image/png" href="icon-512.png">
     <style>
         :root {
             --safe-area-top: env(safe-area-inset-top, 0px);
@@ -47,6 +49,11 @@
         
         h2 { color: #1e3a8a; text-align: center; margin-bottom: 20px; border-bottom: 3px solid #3b82f6; padding-bottom: 10px; }
         label { display: block; font-weight: 700; color: #475569; margin-bottom: 5px; font-size: 0.85rem; }
+        
+        .field-group {
+            display: flex;
+            flex-direction: column;
+        }
         
         select, input { 
             width: 100%; 
@@ -100,6 +107,66 @@
         .bg-severo { background-color: #ef4444; }
         .bg-info { background-color: #1e3a8a; }
         
+        /* Error message styles */
+        .error-message {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-top: -8px;
+            margin-bottom: 12px;
+            display: block;
+            min-height: 1.2em;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s ease-in-out infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Button loading state */
+        button.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        button.loading .spinner {
+            display: inline-block;
+        }
+        
+        /* Result box animations */
+        .diag-box {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .diag-box.visible {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Result icons */
+        .result-icon {
+            font-weight: normal;
+            margin-right: 4px;
+        }
+        
+        .icon-adequate { color: #22c55e; }
+        .icon-moderate { color: #eab308; }
+        .icon-severe { color: #ef4444; }
+        
         @media (display-mode: standalone) {
             body { background-color: #f1f5f9; }
         }
@@ -122,16 +189,29 @@
         <option value="15_65">15,0 años – 65,0 años</option>
         <option value="mayor_65">Mayores de 65,0 años</option>
     </select>
-
-    <div class="row">
-        <div><label>Peso (kg):</label><input type="number" id="peso" placeholder="0.0" step="0.1"></div>
-        <div><label>Talla (cm):</label><input type="number" id="talla" placeholder="0"></div>
-    </div>
+    <div id="grupoEdad-error" class="error-message"></div>
 
     <label>CBI / MUAC (mm):</label>
-    <input type="number" id="muac" placeholder="Medida del brazo">
+    <input type="text" id="muac" placeholder="Ej: 124" pattern="[0-9]{1,3}" inputmode="numeric" maxlength="3" title="Ingrese un número par de 1 a 3 dígitos">
+    <div id="muac-error" class="error-message"></div>
 
-    <button onclick="evaluarTodo()">Generar Evaluación Completa</button>
+    <div class="row">
+        <div>
+            <label>Peso (kg):</label>
+            <input type="number" id="peso" placeholder="0.0" step="0.1">
+            <div id="peso-error" class="error-message"></div>
+        </div>
+        <div>
+            <label>Talla (cm):</label>
+            <input type="number" id="talla" placeholder="0">
+            <div id="talla-error" class="error-message"></div>
+        </div>
+    </div>
+
+    <button id="evaluateBtn" onclick="evaluarTodo()">
+        Evaluar
+        <span id="loadingSpinner" class="spinner"></span>
+    </button>
     <button onclick="limpiarFormulario()" style="background-color: #64748b; margin-top: 5px;">Limpiar</button>
 
     <div id="boxCbi" class="diag-box">
@@ -156,11 +236,36 @@
         const grupo = document.getElementById('grupoEdad').value;
         const peso = parseFloat(document.getElementById('peso').value);
         const talla = parseFloat(document.getElementById('talla').value);
-        const muac = parseFloat(document.getElementById('muac').value);
-
-        if (isNaN(muac) || muac <= 0 || muac > 500) { alert("Por favor, ingrese un valor válido del CBI (mayor a 0)."); return; }
-        if (!isNaN(peso) && (peso <= 0 || peso > 300)) { alert("Por favor, ingrese un peso válido (mayor a 0)."); return; }
-        if (!isNaN(talla) && (talla <= 0 || talla > 250)) { alert("Por favor, ingrese una talla válida (mayor a 0)."); return; }
+        const muac = parseInt(document.getElementById('muac').value, 10);
+        
+        // Limpiar mensajes de error previos
+        limpiarErrores();
+        
+        let esValido = true;
+        
+        if (isNaN(muac) || muac <= 0 || muac > 500) {
+            mostrarError('muac-error', "Por favor, ingrese un valor válido del CBI (mayor a 0).");
+            esValido = false;
+        }
+        if (muac % 2 !== 0) {
+            mostrarError('muac-error', "El CBI debe ser un número par.");
+            esValido = false;
+        }
+        if (!isNaN(peso) && (peso <= 0 || peso > 300)) {
+            mostrarError('peso-error', "Por favor, ingrese un peso válido (mayor a 0).");
+            esValido = false;
+        }
+        if (!isNaN(talla) && (talla <= 0 || talla > 250)) {
+            mostrarError('talla-error', "Por favor, ingrese una talla válida (mayor a 0).");
+            esValido = false;
+        }
+        
+        if (!esValido) return;
+        
+        // Estado de carga
+        const evaluateBtn = document.getElementById('evaluateBtn');
+        evaluateBtn.classList.add('loading');
+        evaluateBtn.disabled = true;
 
         // --- 1. EVALUACIÓN CBI (Siempre se muestra) ---
         let cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // Default 6m-6y
@@ -170,40 +275,56 @@
         if (grupo === "mayor_65") cbiRefObj = { sev: 185, ade: 210, ref: "> 210 mm" };
 
         let cS = "ADECUADO (SITUACIÓN A)", cC = "bg-adecuado";
-        if (muac < cbiRefObj.sev) { cS = "SEVERO (SITUACIÓN B+/C)"; cC = "bg-severo"; }
-        else if (muac < cbiRefObj.ade) { cS = "LEVE/MODERADO (SITUACIÓN B)"; cC = "bg-moderado"; }
+        let iconClass = "icon-adequate";
+        let iconText = "✓";
+        if (muac < cbiRefObj.sev) { 
+            cS = "SEVERO (SITUACIÓN B+/C)"; 
+            cC = "bg-severo";
+            iconClass = "icon-severe";
+            iconText = "✗";
+        }
+        else if (muac < cbiRefObj.ade) { 
+            cS = "LEVE/MODERADO (SITUACIÓN B)"; 
+            cC = "bg-moderado";
+            iconClass = "icon-moderate";
+            iconText = "⚠";
+        }
 
         document.getElementById('cbiStatus').innerText = cS;
         document.getElementById('cbiHeader').className = "diag-header " + cC;
-        document.getElementById('cbiVal').innerText = muac + " mm";
+        document.getElementById('cbiVal').innerHTML = '<span class="result-icon ' + iconClass + '">' + iconText + '</span>' + muac + " mm";
         document.getElementById('cbiRef').innerText = cbiRefObj.ref;
-        document.getElementById('boxCbi').style.display = "block";
+        const cbiBox = document.getElementById('boxCbi');
+        cbiBox.className = "diag-box " + cC.replace("bg-", "") + " visible";
 
         // --- 2. EVALUACIÓN ADAPTATIVA DE PESO ---
-        const boxPeso = document.getElementById('boxPeso');
+        const pesoBox = document.getElementById('boxPeso');
         let evaluoPeso = false;
+        let pesoStat = "";
+        let pesoCol = "";
 
         // A. Menores de 2 años (Peso por Edad)
         const tablaInfantil = {
             "recien_nacido": {min: 2.8, max: 4.2}, "6m": {min: 6.1, max: 9.0},
             "12m": {min: 8.2, max: 11.5}, "18m": {min: 9.3, max: 13.2}, "24m": {min: 10.3, max: 14.5}
         };
-
         if (tablaInfantil[grupo] && !isNaN(peso)) {
             const r = tablaInfantil[grupo];
             const s = (peso < r.min) ? "BAJO" : (peso > r.max) ? "ALTO" : "NORMAL";
-            const col = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
-            actualizarCuadroPeso("PESO POR EDAD", s, col, "Peso:", peso + " kg", "Rango Ideal:", r.min + "-" + r.max + " kg");
+            pesoCol = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("PESO POR EDAD", s, pesoCol, "Peso:", peso + " kg", "Rango Ideal:", r.min + "-" + r.max + " kg");
             evaluoPeso = true;
+            pesoStat = s;
         }
         // B. Escolares 6-9 años (Relación Talla/Peso)
         else if (grupo === "6_9" && !isNaN(peso) && !isNaN(talla)) {
             const tP = [{t:70,min:7,max:10},{t:100,min:13,max:17},{t:130,min:23,max:31},{t:145,min:32,max:44}];
             const r = tP.reduce((p, c) => Math.abs(c.t - talla) < Math.abs(p.t - talla) ? c : p);
             const s = (peso < r.min) ? "BAJO PESO" : (peso > r.max) ? "SOBREPESO" : "NORMAL";
-            const col = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
-            actualizarCuadroPeso("TALLA / PESO", s, col, "Peso:", peso + " kg", "Para " + r.t + "cm:", r.min + "-" + r.max + " kg");
+            pesoCol = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("TALLA / PESO", s, pesoCol, "Peso:", peso + " kg", "Para " + r.t + "cm:", r.min + "-" + r.max + " kg");
             evaluoPeso = true;
+            pesoStat = s;
         }
         // C. Mayores de 10 años (IMC)
         else if (["10_14", "15_65", "mayor_65"].includes(grupo) && !isNaN(peso) && !isNaN(talla)) {
@@ -213,12 +334,26 @@
             if (grupo === "15_65") r = {min: 17.1, max: 24.9}; // Basado en tabla 15 años enviada
 
             const s = (imc < r.min) ? "BAJO" : (imc > r.max) ? "ALTO" : "NORMAL";
-            const col = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
-            actualizarCuadroPeso("DIAGNÓSTICO IMC", s, col, "IMC:", imc, "Rango Normal:", r.min + " - " + r.max);
+            pesoCol = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("DIAGNÓSTICO IMC", s, pesoCol, "IMC:", imc, "Rango Normal:", r.min + " - " + r.max);
             evaluoPeso = true;
+            pesoStat = s;
         }
 
-        boxPeso.style.display = evaluoPeso ? "block" : "none";
+        // Actualizar el estado del botón de peso
+        if (evaluoPeso) {
+            pesoBox.className = "diag-box " + pesoCol.replace("bg-", "") + " visible";
+            document.getElementById('pesoStatus').innerText = pesoStat;
+        } else {
+            pesoBox.className = "diag-box";
+            pesoBox.style.display = "none";
+        }
+        
+         // Quitar estado de carga
+         evaluateBtn.classList.remove('loading');
+         evaluateBtn.disabled = false;
+
+
     }
 
     function actualizarCuadroPeso(tit, stat, col, l1, v1, l2, v2) {
@@ -231,6 +366,22 @@
         document.getElementById('pesoRef').innerText = v2;
     }
 
+    function mostrarError(elementId, mensaje) {
+        const errorElement = document.getElementById(elementId);
+        if (errorElement) {
+            errorElement.textContent = mensaje;
+            errorElement.style.display = "block";
+        }
+    }
+    
+    function limpiarErrores() {
+        const errorElements = document.querySelectorAll('.error-message');
+        errorElements.forEach(el => {
+            el.textContent = "";
+            el.style.display = "none";
+        });
+    }
+
     function limpiarFormulario() {
         document.getElementById('grupoEdad').value = "recien_nacido";
         document.getElementById('peso').value = "";
@@ -238,6 +389,25 @@
         document.getElementById('muac').value = "";
         document.getElementById('boxCbi').style.display = "none";
         document.getElementById('boxPeso').style.display = "none";
+        limpiarErrores();
+    }
+
+    // Registro del Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(registration => {
+                    console.log('SW registrado: ', registration.scope);
+                })
+                .catch(error => {
+                    console.log('SW registro falló: ', error);
+                });
+        });
+    }
+
+    // Advertir si se está abriendo el archivo directamente (file://)
+    if (window.location.protocol === 'file:') {
+        console.warn('PWA: Para instalar y usar la aplicación sin conexión, debe servirla mediante un servidor HTTP. Acceda a través de http://localhost/inn-nutrieval/');
     }
 </script>
 </body>
