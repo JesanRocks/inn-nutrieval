@@ -113,8 +113,16 @@
             font-size: 0.85rem;
             margin-top: -8px;
             margin-bottom: 12px;
+            display: none;
+            height: 0;
+            overflow: hidden;
+            transition: height 0.2s ease, margin 0.2s ease;
+        }
+        
+        .error-message.visible {
             display: block;
-            min-height: 1.2em;
+            height: auto;
+            margin-bottom: 12px;
         }
         
         /* Loading spinner */
@@ -376,7 +384,7 @@
         const errorElement = document.getElementById(elementId);
         if (errorElement) {
             errorElement.textContent = mensaje;
-            errorElement.style.display = "block";
+            errorElement.classList.add('visible');
         }
     }
     
@@ -384,7 +392,7 @@
         const errorElements = document.querySelectorAll('.error-message');
         errorElements.forEach(el => {
             el.textContent = "";
-            el.style.display = "none";
+            el.classList.remove('visible');
         });
     }
 
