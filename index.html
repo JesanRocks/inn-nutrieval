@@ -319,6 +319,15 @@
 
         // --- 1. EVALUACIÓN CBI (Siempre se muestra) ---
         let cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // Default 6m-6y
+        
+        // Valores CBI para niños de 0-2 años y 6-72 meses
+        if (grupo === "recien_nacido") cbiRefObj = { sev: 85, ade: 95, ref: "> 95 mm" };
+        if (grupo === "6m") cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // 6-72 meses: >125 adecuado, <125 moderado, <115 severo
+        if (grupo === "12m") cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // 6-72 meses
+        if (grupo === "18m") cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // 6-72 meses
+        if (grupo === "24m") cbiRefObj = { sev: 115, ade: 125, ref: "> 125 mm" }; // 6-72 meses
+        
+        // Otros grupos de edad
         if (grupo === "6_9") cbiRefObj = { sev: 130, ade: 145, ref: "> 145 mm" };
         if (grupo === "10_14") cbiRefObj = { sev: 160, ade: 185, ref: "> 185 mm" };
         if (["15_65"].includes(grupo)) cbiRefObj = { sev: 210, ade: 230, ref: "> 230 mm" };
@@ -355,10 +364,9 @@
         let pesoStat = "";
         let pesoCol = "";
 
-        // A. Menores de 2 años (Peso por Edad)
+        // A. Menores de 6 meses (Peso por Edad)
         const tablaInfantil = {
-            "recien_nacido": {min: 2.8, max: 4.2}, "6m": {min: 6.1, max: 9.0},
-            "12m": {min: 8.2, max: 11.5}, "18m": {min: 9.3, max: 13.2}, "24m": {min: 10.3, max: 14.5}
+            "recien_nacido": {min: 2.8, max: 4.2}
         };
         if (tablaInfantil[grupo] && !isNaN(peso)) {
             const r = tablaInfantil[grupo];
@@ -368,7 +376,30 @@
             evaluoPeso = true;
             pesoStat = s;
         }
-        // B. Escolares 6-9 años (Relación Talla/Peso)
+        // B. Niños 6-72 meses (Peso para Talla - Estándares OMS)
+        else if (["6m", "12m", "18m", "24m"].includes(grupo) && !isNaN(peso) && !isNaN(talla)) {
+            // Tabla Peso/Talla OMS para niños 6-60 meses (valores aproximados)
+            const tablaPesoTalla = [
+                {talla: 65, min: 5.8, max: 8.5}, {talla: 70, min: 6.5, max: 9.5},
+                {talla: 75, min: 7.2, max: 10.5}, {talla: 80, min: 7.9, max: 11.5},
+                {talla: 85, min: 8.6, max: 12.5}, {talla: 90, min: 9.3, max: 13.5},
+                {talla: 95, min: 10.0, max: 14.5}, {talla: 100, min: 10.7, max: 15.5},
+                {talla: 105, min: 11.4, max: 16.5}, {talla: 110, min: 12.1, max: 17.5},
+                {talla: 115, min: 12.8, max: 18.5}, {talla: 120, min: 13.5, max: 19.5}
+            ];
+            
+            const rango = tablaPesoTalla.reduce((prev, curr) => 
+                Math.abs(curr.talla - talla) < Math.abs(prev.talla - talla) ? curr : prev
+            );
+            
+            const s = (peso < rango.min) ? "DESNUTRICIÓN" : (peso > rango.max) ? "SOBREPESO" : "NORMAL";
+            pesoCol = (s === "NORMAL") ? "bg-adecuado" : "bg-severo";
+            actualizarCuadroPeso("PESO PARA TALLA", s, pesoCol, "Peso:", peso + " kg", 
+                               "Para " + rango.talla + "cm:", rango.min + "-" + rango.max + " kg");
+            evaluoPeso = true;
+            pesoStat = s;
+        }
+        // C. Escolares 6-9 años (Relación Talla/Peso)
         else if (grupo === "6_9" && !isNaN(peso) && !isNaN(talla)) {
             const tP = [{t:70,min:7,max:10},{t:100,min:13,max:17},{t:130,min:23,max:31},{t:145,min:32,max:44}];
             const r = tP.reduce((p, c) => Math.abs(c.t - talla) < Math.abs(p.t - talla) ? c : p);
